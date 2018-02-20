@@ -590,6 +590,47 @@ _randint_type = {
     }
 
 
+class pdist(object):
+
+    @classmethod
+    def wrap(cls, p):
+        if isinstance(p, cls):
+            return p
+        else:
+            return cls(p)
+
+
+    def __init__(self, p):
+        d = len(p)
+
+        atol = np.sqrt(np.finfo(np.float64).eps)
+        if isinstance(p, np.ndarray):
+            if np.issubdtype(p.dtype, np.floating):
+                atol = max(atol, np.sqrt(np.finfo(p.dtype).eps))
+
+        p = <ndarray>PyArray_ContiguousFromObject(p, NPY_DOUBLE, 1, 1)
+        pix = <double*>PyArray_DATA(p)
+
+        if p.ndim != 1:
+            raise ValueError("p must be 1-dimensional")
+        if np.logical_or.reduce(p < 0):
+            raise ValueError("probabilities are not non-negative")
+        if abs(kahan_sum(pix, d) - 1.) > atol:
+            raise ValueError("probabilities do not sum to 1")
+
+        self.p = p.copy()
+        self._cumsum = None
+
+    def __len__(self):
+        return self.p.size
+
+    @property
+    def cumsum(self):
+        if self._cumsum is None:
+            self._cumsum = np.cumsum(self.p)
+        return self._cumsum
+
+
 cdef class RandomState:
     """
     RandomState(seed=None)
@@ -1126,25 +1167,11 @@ cdef class RandomState:
                 raise ValueError("a must be non-empty")
 
         if p is not None:
-            d = len(p)
+            p = pdist.wrap(p)
 
-            atol = np.sqrt(np.finfo(np.float64).eps)
-            if isinstance(p, np.ndarray):
-                if np.issubdtype(p.dtype, np.floating):
-                    atol = max(atol, np.sqrt(np.finfo(p.dtype).eps))
-
-            p = <ndarray>PyArray_ContiguousFromObject(p, NPY_DOUBLE, 1, 1)
-            pix = <double*>PyArray_DATA(p)
-
-            if p.ndim != 1:
-                raise ValueError("p must be 1-dimensional")
-            if p.size != pop_size:
+            if len(p) != pop_size:
                 raise ValueError("a and p must have same size")
-            if np.logical_or.reduce(p < 0):
-                raise ValueError("probabilities are not non-negative")
-            if abs(kahan_sum(pix, d) - 1.) > atol:
-                raise ValueError("probabilities do not sum to 1")
-
+            
         shape = size
         if shape is not None:
             size = np.prod(shape, dtype=np.intp)
@@ -1154,7 +1181,7 @@ cdef class RandomState:
         # Actual sampling
         if replace:
             if p is not None:
-                cdf = p.cumsum()
+                cdf = p.cumsum
                 cdf /= cdf[-1]
                 uniform_samples = self.random_sample(shape)
                 idx = cdf.searchsorted(uniform_samples, side='right')
@@ -1167,10 +1194,10 @@ cdef class RandomState:
                                  "population when 'replace=False'")
 
             if p is not None:
-                if np.count_nonzero(p > 0) < size:
+                if np.count_nonzero(p.p > 0) < size:
                     raise ValueError("Fewer non-zero entries in p than size")
                 n_uniq = 0
-                p = p.copy()
+                p = p.p.copy()
                 found = np.zeros(shape, dtype=np.int)
                 flat_found = found.ravel()
                 while n_uniq < size:
