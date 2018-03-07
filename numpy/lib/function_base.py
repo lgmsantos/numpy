@@ -818,9 +818,9 @@ def gradient(f, *varargs, **kwargs):
     Notes
     -----
     Assuming that :math:`f\\in C^{3}` (i.e., :math:`f` has at least 3 continuous
-    derivatives) and let be :math:`h_{*}` a non homogeneous stepsize, the
-    spacing the finite difference coefficients are computed by minimising
-    the consistency error :math:`\\eta_{i}`:
+    derivatives) and let :math:`h_{*}` be a non-homogeneous stepsize, we
+    minimize the "consistency error" :math:`\\eta_{i}` between the true gradient
+    and its estimate from a linear combination of the neighboring grid-points:
 
     .. math::
 
@@ -839,7 +839,7 @@ def gradient(f, *varargs, **kwargs):
         \\left\\{
             \\begin{array}{r}
                 \\alpha+\\beta+\\gamma=0 \\\\
-                -\\beta h_{d}+\\gamma h_{s}=1 \\\\
+                \\beta h_{d}-\\gamma h_{s}=1 \\\\
                 \\beta h_{d}^{2}+\\gamma h_{s}^{2}=0
             \\end{array}
         \\right.
@@ -1255,23 +1255,13 @@ def interp(x, xp, fp, left=None, right=None, period=None):
         interp_func = compiled_interp
         input_dtype = np.float64
 
-    if period is None:
-        if isinstance(x, (float, int, number)):
-            return interp_func([x], xp, fp, left, right).item()
-        elif isinstance(x, np.ndarray) and x.ndim == 0:
-            return interp_func([x], xp, fp, left, right).item()
-        else:
-            return interp_func(x, xp, fp, left, right)
-    else:
+    if period is not None:
         if period == 0:
             raise ValueError("period must be a non-zero value")
         period = abs(period)
         left = None
         right = None
-        return_array = True
-        if isinstance(x, (float, int, number)):
-            return_array = False
-            x = [x]
+
         x = np.asarray(x, dtype=np.float64)
         xp = np.asarray(xp, dtype=np.float64)
         fp = np.asarray(fp, dtype=input_dtype)
@@ -1289,10 +1279,7 @@ def interp(x, xp, fp, left=None, right=None, period=None):
         xp = np.concatenate((xp[-1:]-period, xp, xp[0:1]+period))
         fp = np.concatenate((fp[-1:], fp, fp[0:1]))
 
-        if return_array:
-            return interp_func(x, xp, fp, left, right)
-        else:
-            return interp_func(x, xp, fp, left, right).item()
+    return interp_func(x, xp, fp, left, right)
 
 
 def angle(z, deg=0):

@@ -1520,9 +1520,9 @@ class TestMethods(object):
             assert_equal(c, ai, msg)
 
         # test sorting of complex arrays requiring byte-swapping, gh-5441
-        for endianess in '<>':
+        for endianness in '<>':
             for dt in np.typecodes['Complex']:
-                arr = np.array([1+3.j, 2+2.j, 3+1.j], dtype=endianess + dt)
+                arr = np.array([1+3.j, 2+2.j, 3+1.j], dtype=endianness + dt)
                 c = arr.copy()
                 c.sort()
                 msg = 'byte-swapped complex sort, dtype={0}'.format(dt)
@@ -1742,6 +1742,13 @@ class TestMethods(object):
         assert_equal(r, np.array([('a', 1), ('c', 3), ('b', 255), ('d', 258)],
                                  dtype=mydtype))
 
+    def test_sort_matrix_none(self):
+        a = np.matrix([[2, 1, 0]])
+        actual = np.sort(a, axis=None)
+        expected = np.matrix([[0, 1, 2]])
+        assert_equal(actual, expected)
+        assert_(type(expected) is np.matrix)
+
     def test_argsort(self):
         # all c scalar argsorts use the same code with different types
         # so it suffices to run a quick check with one type. The number
@@ -1771,9 +1778,9 @@ class TestMethods(object):
             assert_equal(bi.copy().argsort(kind=kind), b, msg)
 
         # test argsort of complex arrays requiring byte-swapping, gh-5441
-        for endianess in '<>':
+        for endianness in '<>':
             for dt in np.typecodes['Complex']:
-                arr = np.array([1+3.j, 2+2.j, 3+1.j], dtype=endianess + dt)
+                arr = np.array([1+3.j, 2+2.j, 3+1.j], dtype=endianness + dt)
                 msg = 'byte-swapped complex argsort, dtype={0}'.format(dt)
                 assert_equal(arr.argsort(),
                              np.arange(len(arr), dtype=np.intp), msg)
@@ -2486,6 +2493,14 @@ class TestMethods(object):
                 tgt = np.sort(d)[kth]
                 assert_array_equal(np.partition(d, kth)[kth], tgt,
                                    err_msg="data: %r\n kth: %r" % (d, kth))
+
+    def test_partition_matrix_none(self):
+        # gh-4301
+        a = np.matrix([[2, 1, 0]])
+        actual = np.partition(a, 1, axis=None)
+        expected = np.matrix([[0, 1, 2]])
+        assert_equal(actual, expected)
+        assert_(type(expected) is np.matrix)
 
     def test_argpartition_gh5524(self):
         #  A test for functionality of argpartition on lists.
@@ -3341,7 +3356,7 @@ class TestTemporaryElide(object):
         # def incref_elide_l(d):
         #    return l[4] + l[4] # PyNumber_Add without increasing refcount
         from numpy.core.multiarray_tests import incref_elide_l
-        # padding with 1 makes sure the object on the stack is not overwriten
+        # padding with 1 makes sure the object on the stack is not overwritten
         l = [1, 1, 1, 1, np.ones(100000)]
         res = incref_elide_l(l)
         # the return original should not be changed to an inplace operation

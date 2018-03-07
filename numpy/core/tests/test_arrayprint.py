@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import division, absolute_import, print_function
 
-import sys
+import sys, gc
 
 import numpy as np
 from numpy.testing import (
@@ -355,6 +355,18 @@ class TestArray2String(object):
             "[ 'xxxxx']"
         )
 
+    def test_refcount(self):
+        # make sure we do not hold references to the array due to a recursive
+        # closure (gh-10620)
+        gc.disable()
+        a = np.arange(2)
+        r1 = sys.getrefcount(a)
+        np.array2string(a)
+        np.array2string(a)
+        r2 = sys.getrefcount(a)
+        gc.collect()
+        gc.enable()
+        assert_(r1 == r2)
 
 class TestPrintOptions(object):
     """Test getting and setting global print options."""
@@ -809,7 +821,7 @@ class TestContextManager(object):
         assert_equal(np.get_printoptions(), opts)
 
     def test_ctx_mgr_exceptions(self):
-        # test that print options are restored even if an exeption is raised
+        # test that print options are restored even if an exception is raised
         opts = np.get_printoptions()
         try:
             with np.printoptions(precision=2, linewidth=11):
